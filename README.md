@@ -43,36 +43,6 @@ export BAIDU_MAP_AUTH_TOKEN="你的SK"
 
 如果你是从 Release 下载使用，请把解压后的 `baidu-ai-map` 目录链接或复制到当前环境对应的 skills 目录。
 
-**Claude Desktop（本地）**
-
-- Skills 目录一般为：`~/.claude/skills/`
-- 注册（软链，推荐）：
-
-```bash
-ln -sfn "$(pwd)/skills/baidu-ai-map" ~/.claude/skills/baidu-ai-map
-```
-
-如果使用 Release 解压目录：
-
-```bash
-ln -sfn "$(pwd)/baidu-ai-map" ~/.claude/skills/baidu-ai-map
-```
-
-**Cursor**
-
-- Skills 目录一般为：`~/.cursor/skills/`
-- 注册（软链，推荐）：
-
-```bash
-ln -sfn "$(pwd)/skills/baidu-ai-map" ~/.cursor/skills/baidu-ai-map
-```
-
-如果使用 Release 解压目录：
-
-```bash
-ln -sfn "$(pwd)/baidu-ai-map" ~/.cursor/skills/baidu-ai-map
-```
-
 **OpenClaw**
 
 - 以下示例默认使用：`~/.openclaw/workspace/skills/`
