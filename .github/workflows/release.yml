@@ -1,0 +1,47 @@
+name: Build Skill Zip
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout (git clone)
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          rm -rf .git
+          git init
+          git remote add origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git fetch --depth 1 origin "refs/tags/${GITHUB_REF_NAME}"
+          git checkout FETCH_HEAD
+
+      - name: Zip baidu-ai-map skill
+        run: |
+          test -d skills/baidu-ai-map
+          rm -f baidu-ai-map.zip
+          cd skills
+          zip -r ../baidu-ai-map.zip baidu-ai-map \
+            -x "*/.DS_Store"
+
+      - name: Create or Update GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          gh release view "$tag" >/dev/null 2>&1 || \
+            gh release create "$tag" --generate-notes
+
+      - name: Upload baidu-ai-map.zip to Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          gh release upload "$tag" baidu-ai-map.zip --clobber
