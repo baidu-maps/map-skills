@@ -1,6 +1,6 @@
 ---
 name: baidu-ai-map
-description: 百度地图 Agent Plan 直连调用 place、direction、geocoding、reverse_geocoding、weather 五类能力。
+description: 百度地图Map Agent Plan，官方为 Agent专属AI地图技能，直连 place、direction、geocoding、reverse_geocoding、weather 五大核心能力，大模型一键调用地图服务。
 license: MIT
 version: 1.0.0
 homepage: https://lbs.baidu.com
@@ -55,16 +55,15 @@ curl --get "https://api.map.baidu.com/agent_plan/v1/place" \
 
 ## 全局参数与行为约束
 
-1. `user_raw_request` 必须原样完整传入，不可压缩为关键词。
-2. 需保留定语/约束词，例如“评分最高”“最近”“最便宜”“3公里内”。
-3. 不得编造坐标；`center` / `location` / `refer_pois` 仅可来自用户明确提供或可信来源。
-4. 出现“我附近”等非明确地点时，可代替用户推理为具体地点。
+1. `user_raw_request` 必须是完整的用户需求，不可压缩为关键词。
+2. `user_raw_request` 出现“我附近”等非明确地点时，可代替用户推理为具体地点。
+3. `user_raw_request` 需保留定语/约束词，例如“评分最高”“最近”“最便宜”“3公里内”。
+4. 不得编造坐标；`center` / `location` / `refer_pois` 仅可来自用户明确提供或可信来源。
 5. 统一使用参数 `baidu_map_auth_token` 鉴权（GET/POST 都放 query）。
 6. 经纬度至少保留小数点后 6 位。
-7. `place` 中 `sort=distance` 时，`center` 必传。
-8. `direction` 不需要 `region` 参数。
-9. `refer_pois` 格式固定为：`地点名称:uid,纬度,经度;地点名称:uid,纬度,经度`。
-10. 所有工具返回坐标类型统一为 `gcj02`。
+7. 所有工具返回坐标类型统一为 `gcj02`。
+8. 禁止使用 grep/sed/awk/jq/python脚本 正则裁剪响应后再推断字段，这会造成百度地图 Agent Plan 巨额的token消耗；短时间内遇到相同或高度相似请求时，应优先基于结果直接推理，避免重复发起请求。
+9. `direction` 可能返回两类结果：路线结果，或起终点澄清结果。当返回起终点澄清结果时，应先根据用户需求推理最合理候选；若仍无法唯一确定，应引导用户在候选中选择后再继续规划。
 
 ## 工具详解
 
@@ -123,16 +122,17 @@ curl --get "https://api.map.baidu.com/agent_plan/v1/place" \
 #### 参数输入
 
 Required:
-- `user_raw_request`: 用户原始需求，原样完整传入，包含起点和终点；保留交通方式和路线约束词
+- `user_raw_request`: 用户原始需求，包含起点和终点；保留路线约束词，需要推理并改写用户原始的交通方式
+- `location`: 用户当前位置坐标（`lat,lng`，gcj02）
 
 Optional:
-- `location`: 用户当前位置坐标（`lat,lng`，gcj02）
 - `refer_pois`: 地点精确映射，格式 `地点名称:uid,纬度,经度;地点名称:uid,纬度,经度`
 
 Rules:
-- `refer_pois` 用于同名地点消歧
+- 当前仅支持驾车、步行、骑行、公交路线规划。`user_raw_request` 中出现其他交通方式时，需要改写到这四种交通方式
+- `location` 当起点有歧义（如同名地标、模糊起点）时，会基于用当前位置推理最合理的起点位置
+- `refer_pois` 默认不传，用于同名地点消歧，仅在query中明确有歧义地点时传入
 - `refer_pois` / `location` 的经纬度至少保留小数点后 6 位，禁止推测/编造，可以调用Plcae或Geocoding获取
-- 出现“我附近”等非明确地点时，可在保留原需求前提下推理成具体地点
 
 #### 鉴权
 
@@ -144,13 +144,21 @@ Rules:
 # 1) 帮我规划从故宫到颐和园的驾车路线
 curl -X POST "https://api.map.baidu.com/agent_plan/v1/direction?baidu_map_auth_token=$BAIDU_MAP_AUTH_TOKEN" \
   -H "Content-Type: application/x-www-form-urlencoded" \
-  --data-urlencode "user_raw_request=帮我规划从故宫到颐和园的驾车路线"
+  --data-urlencode "user_raw_request=帮我规划从故宫到颐和园的驾车路线" \
+  --data-urlencode "location=39.914590,116.403770"
 
 # 2) “我家”别名映射
 curl -X POST "https://api.map.baidu.com/agent_plan/v1/direction?baidu_map_auth_token=$BAIDU_MAP_AUTH_TOKEN" \
   -H "Content-Type: application/x-www-form-urlencoded" \
   --data-urlencode "user_raw_request=步行去我家附近最近的中餐厅" \
+  --data-urlencode "location=40.056800,116.308300" \
   --data-urlencode "refer_pois=我家:fbc88a21464370106e3e1b52,40.092180,116.345310"
+
+# 2) 交通方式推理改写：从王府井打车去三里屯要多久
+curl -X POST "https://api.map.baidu.com/agent_plan/v1/direction?baidu_map_auth_token=$BAIDU_MAP_AUTH_TOKEN" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  --data-urlencode "user_raw_request=从王府井驾车去三里屯要多久" \
+  --data-urlencode "location=39.914590,116.403770"
 ```
 
 ### 3. Geocoding（地理编码）
